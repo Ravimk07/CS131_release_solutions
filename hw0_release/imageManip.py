@@ -20,7 +20,7 @@ def load(image_path):
 
     ### YOUR CODE HERE
     # Use skimage io.imread
-    pass
+    out = io.imread(image_path)
     ### END YOUR CODE
 
     # Let's convert the image to be between the correct range.
@@ -45,7 +45,7 @@ def dim_image(image):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = 0.5 * np.power(image, 2)
     ### END YOUR CODE
 
     return out
@@ -66,7 +66,7 @@ def convert_to_grey_scale(image):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = color.rgb2gray(image)
     ### END YOUR CODE
 
     return out
@@ -86,7 +86,14 @@ def rgb_exclusion(image, channel):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = image.copy()
+    if channel == 'R':
+        out[:, :, 0] = 0
+    elif channel == 'G':
+        out[:, :, 1] = 0
+    else:
+        out[:, :, 2] = 0
+
     ### END YOUR CODE
 
     return out
@@ -107,7 +114,12 @@ def lab_decomposition(image, channel):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    if channel == 'L':
+        out = lab[:, :, 0]
+    elif channel == 'A':
+        out = lab[:, :, 1]
+    else:
+        out = lab[:, :, 2]
     ### END YOUR CODE
 
     return out
@@ -128,7 +140,12 @@ def hsv_decomposition(image, channel='H'):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    if channel == 'H':
+        out = hsv[:, :, 0]
+    elif channel == 'S':
+        out = hsv[:, :, 1]
+    else:
+        out = hsv[:, :, 2]
     ### END YOUR CODE
 
     return out
@@ -154,7 +171,12 @@ def mix_images(image1, image2, channel1, channel2):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    out = np.zeros(image1.shape)
+    left = rgb_exclusion(image1, channel1)
+    right = rgb_exclusion(image2, channel2)
+    mid = int(left.shape[1] / 2)
+    out[:,:mid, :] = left[:,:mid, :]
+    out[:,mid:, :] = right[:,mid:, :]
     ### END YOUR CODE
 
     return out
@@ -183,7 +205,13 @@ def mix_quadrants(image):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = np.zeros(image.shape)
+    mid_row = int(image.shape[0] / 2)
+    mid_col = int(image.shape[1] / 2)
+    out[:mid_row, :mid_col,:] = rgb_exclusion(image[:mid_row, :mid_col,:], 'R')
+    out[:mid_row, mid_col:, :] = dim_image(image[:mid_row, mid_col:, :])
+    out[mid_row:, :mid_col, :] = np.power(image[mid_row:, :mid_col, :], 0.5)
+    out[mid_row:, mid_col:, :] = rgb_exclusion(image[mid_row:, mid_col:, :], 'R')
     ### END YOUR CODE
 
     return out
