@@ -30,7 +30,8 @@ def energy_function(image):
     gray_image = color.rgb2gray(image)
 
     ### YOUR CODE HERE
-    pass
+    x, y = np.gradient(gray_image, axis=(0, 1))
+    out = np.abs(x) + np.abs(y)
     ### END YOUR CODE
 
     return out
@@ -77,7 +78,17 @@ def compute_cost(image, energy, axis=1):
     paths[0] = 0  # we don't care about the first row of paths
 
     ### YOUR CODE HERE
-    pass
+    max_v = 100
+    for r in range(1, H):
+        cost1 = np.hstack((max_v, cost[r - 1, :-1]))
+        cost2 = cost[r - 1, :]
+        cost3 = np.hstack((cost[r - 1, 1:], max_v))
+        values = np.vstack((cost1, cost2, cost3))
+        i = np.argmin(values, 0)
+        cost[r] = energy[r] + i.choose(values)
+        paths[r, i == 0] = -1
+        paths[r, i == 1] = 0
+        paths[r, i == 2] = 1
     ### END YOUR CODE
 
     if axis == 0:
@@ -115,7 +126,8 @@ def backtrack_seam(paths, end):
     seam[H-1] = end
 
     ### YOUR CODE HERE
-    pass
+    for r in range(H - 2, -1, -1):
+        seam[r] = seam[r + 1] + paths[r + 1, seam[r + 1]]
     ### END YOUR CODE
 
     # Check that seam only contains values in [0, W-1]
@@ -145,7 +157,7 @@ def remove_seam(image, seam):
     out = None
     H, W, C = image.shape
     ### YOUR CODE HERE
-    pass
+    out = image[np.arange(W) != seam[:, None]].reshape(H, W-1, C)
     ### END YOUR CODE
     out = np.squeeze(out)  # remove last dimension if C == 1
 
@@ -190,9 +202,14 @@ def reduce(image, size, axis=1, efunc=energy_function, cfunc=compute_cost, bfunc
     assert size > 0, "Size must be greater than zero"
 
     ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    diff_size = W - size
 
+    for _ in range(diff_size):
+        energy = efunc(out)
+        cost, paths = cfunc(out, energy)
+        seam = bfunc(paths, np.argmin(cost[-1]))
+        out = rfunc(out, seam)
+    ### END YOUR CODE
     assert out.shape[1] == size, "Output doesn't have the right shape"
 
     if axis == 0:
@@ -217,7 +234,15 @@ def duplicate_seam(image, seam):
     H, W, C = image.shape
     out = np.zeros((H, W + 1, C))
     ### YOUR CODE HERE
-    pass
+    #for r in range(H):
+    #	i = seam[r]
+    #	if i == 0:
+    #		i = 1
+    #	p1 = image[r, :i]
+    #	p2 = image[r, i - 1:]
+    #	out[r, :, :] = np.concatenate((p1, p2), 0)
+    for i in range(H):
+        out[i] = np.insert(image[i], seam[i], image[i, seam[i]], axis=0)
     ### END YOUR CODE
 
     return out
@@ -255,7 +280,13 @@ def enlarge_naive(image, size, axis=1, efunc=energy_function, cfunc=compute_cost
     assert size > W, "size must be greather than %d" % W
 
     ### YOUR CODE HERE
-    pass
+    diff_size = size - W
+
+    for _ in range(diff_size):
+        energy = efunc(out)
+        cost, paths = cfunc(out, energy)
+        seam = bfunc(paths, np.argmin(cost[-1]))
+        out = dfunc(out, seam)
     ### END YOUR CODE
 
     if axis == 0:
@@ -373,7 +404,16 @@ def enlarge(image, size, axis=1, efunc=energy_function, cfunc=compute_cost):
     assert size <= 2 * W, "size must be smaller than %d" % (2 * W)
 
     ### YOUR CODE HERE
-    pass
+    diff_size = size - W
+    seams = find_seams(image, diff_size, axis, efunc, cfunc)
+    if axis == 0:
+        seams = seams.T
+    index_offsets = np.zeros((out.shape[0], out.shape[1]), dtype=np.int32)
+    for i in range(diff_size):
+        a = np.where(seams == i + 1)[1]
+        out = duplicate_seam(out, a + index_offsets[range(index_offsets.shape[0]), a])
+        for j in range(index_offsets.shape[0]):
+            index_offsets[j, a[j]:] += 1
     ### END YOUR CODE
 
     if axis == 0:
@@ -415,7 +455,42 @@ def compute_forward_cost(image, energy):
     paths[0] = 0  # we don't care about the first row of paths
 
     ### YOUR CODE HERE
-    pass
+    # max_v = 100
+    # for r in range(1, H):
+    #     cost1 = np.abs(image[r, :] - np.hstack((max_v, image[r - 1, :-1])))
+    #     cost1 += np.abs(image[r,:] - np.hstack((image[r - 1, 1:], max_v)))
+    #
+    #     cost2 = np.abs(image[r,:] - np.hstack((image[r - 1, 1:], max_v)))
+    #
+    #     cost3 = np.abs(image[r, :] - np.hstack((image[r - 1, 1:], max_v)))
+    #     cost3 += np.abs(image[r,:] - np.hstack((image[r - 1, 1:], max_v)))
+    #     #cost1 = np.hstack((max_v, cost[r - 1, :-1]))
+    #     #cost2 = cost[r - 1, :]
+    #     #cost3 = np.hstack((cost[r - 1, 1:], max_v))
+    #
+    #     values = np.vstack((cost1, cost2, cost3))
+    #     i = np.argmin(values, 0)
+    #     cost[r] = i.choose(values)
+    #     paths[r, i == 0] = -1
+    #     paths[r, i == 1] = 0
+    #     paths[r, i == 2] = 1
+    for i in range(1, H):
+        m1 = np.insert(image[i, 0:W-1], 0, 0, axis=0)
+        m2 = np.insert(image[i, 1:W], W-1, 0, axis=0)
+        m3 = image[i-1]
+        c_v = abs(m1 - m2)
+        c_v[0] = 0
+        c_v[-1] = 0
+        c_l = c_v + abs(m3 - m1)
+        c_r = c_v + abs(m3 - m2)
+        c_l[0] = 0
+        c_r[-1] = 0
+        i1 = np.insert(cost[i-1, 0:W-1], 0, 1e10, axis=0)
+        i2 = cost[i-1]
+        i3 = np.insert(cost[i-1, 1:W], W-1, 1e10, axis=0)
+        C = np.r_[i1 + c_l, i2 + c_v, i3 + c_r].reshape(3, -1)
+        cost[i] = energy[i] + np.min(C, axis=0)
+        paths[i] = np.argmin(C, axis=0) - 1
     ### END YOUR CODE
 
     # Check that paths only contains -1, 0 or 1
