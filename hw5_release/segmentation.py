@@ -9,6 +9,7 @@ Python Version: 3.5+
 
 import numpy as np
 import random
+import sys
 from scipy.spatial.distance import squareform, pdist
 from skimage.util import img_as_float
 
@@ -45,7 +46,24 @@ def kmeans(features, k, num_iters=100):
 
     for n in range(num_iters):
         ### YOUR CODE HERE
-        pass
+        new_assignments = np.zeros(N, dtype=np.uint32)
+        for i in range(N):
+        	feat = features[i]
+        	min_idx = 0
+        	min_dist = np.linalg.norm(feat - centers[0], 2)
+        	for j in range(1, len(centers)):
+        		dist = np.linalg.norm(feat - centers[j], 2)
+        		if dist < min_dist:
+        			min_dist = dist
+        			min_idx = j
+        	new_assignments[i] = min_idx
+        if np.array_equal(new_assignments, assignments):
+        	break
+
+        assignments = new_assignments
+        for i in range(len(centers)):
+        	assignments_to_center = features[assignments == i]
+        	centers[i] = np.sum(assignments_to_center, 0) / assignments_to_center.shape[0]
         ### END YOUR CODE
 
     return assignments
@@ -81,7 +99,19 @@ def kmeans_fast(features, k, num_iters=100):
 
     for n in range(num_iters):
         ### YOUR CODE HERE
-        pass
+        new_assignments = np.zeros(N, dtype=np.uint32)
+        expanded_features = np.repeat(np.expand_dims(features, 0), k, axis=0)
+        expanded_centers = np.expand_dims(centers, 1)
+        dists = np.linalg.norm(expanded_features - expanded_centers, 2, axis=2)
+        new_assignments = np.argmin(dists, axis=0)
+
+        if np.array_equal(new_assignments, assignments):
+        	break
+
+        assignments = new_assignments
+        for i in range(len(centers)):
+        	assignments_to_center = features[assignments == i]
+        	centers[i] = np.sum(assignments_to_center, 0) / assignments_to_center.shape[0]
         ### END YOUR CODE
 
     return assignments
@@ -131,10 +161,47 @@ def hierarchical_clustering(features, k):
     centers = np.copy(features)
     n_clusters = N
 
-    while n_clusters > k:
+    dict_centers = {i: {'center':features[i], 'indices':[i]} for i in range(centers.shape[0])}
+    dict_distances = {}
+    next_center_key = centers.shape[0]
+    for i in range(centers.shape[0]):
+        for j in range(i + 1, centers.shape[0]):
+            dict_distances[(i, j)] = np.linalg.norm(dict_centers[i]['center'] - dict_centers[j]['center'], 2)
+    
+    k_cls = k
+    while n_clusters > k_cls:
         ### YOUR CODE HERE
-        pass
-        ### END YOUR CODE
+        min_dist = sys.float_info.max
+        min_key = (-1, -1)
+        for k in dict_distances.keys():
+            d = dict_distances[k]
+            if d < min_dist:
+                min_dist = d
+                min_key = k
+        new_center = (dict_centers[min_key[0]]['center'] + dict_centers[min_key[1]]['center']) / 2
+        dict_centers[next_center_key] = {
+                'center': new_center, 
+                'indices': dict_centers[min_key[0]]['indices'] + dict_centers[min_key[1]]['indices']}
+        del dict_centers[min_key[0]]
+        del dict_centers[min_key[1]]
+
+        for k in list(dict_distances.keys()):
+            if min_key[0] in k or min_key[1] in k:
+                del dict_distances[k]
+
+        for k in dict_centers:
+            v = dict_centers[k]
+            if k == next_center_key:
+                continue
+            dict_distances[(k, next_center_key)] = np.linalg.norm(v['center'] - new_center, 2)
+
+        next_center_key += 1
+        n_clusters = len(list(dict_centers.keys()))
+
+    for i, k in enumerate(dict_centers):
+        assignments[dict_centers[k]['indices']] = i
+
+    ### END YOUR CODE
 
     return assignments
 
@@ -154,7 +221,7 @@ def color_features(img):
     features = np.zeros((H*W, C))
 
     ### YOUR CODE HERE
-    pass
+    features = img.reshape(H*W, C)
     ### END YOUR CODE
 
     return features
@@ -183,7 +250,12 @@ def color_position_features(img):
     features = np.zeros((H*W, C+2))
 
     ### YOUR CODE HERE
-    pass
+    features[:, :3] = img.reshape(H*W, C)
+    grid = np.mgrid[:H, :W]
+    features[:, 3] = grid[0].reshape(H*W)
+    features[:, 4] = grid[1].reshape(H*W)
+
+    features = (features - np.mean(features, axis=0)) / np.std(features,  axis=0)
     ### END YOUR CODE
 
     return features
@@ -223,7 +295,7 @@ def compute_accuracy(mask_gt, mask):
 
     accuracy = None
     ### YOUR CODE HERE
-    pass
+    accuracy = np.sum(mask_gt == mask) / (mask.shape[0] * mask.shape[1])
     ### END YOUR CODE
 
     return accuracy
