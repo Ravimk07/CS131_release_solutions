@@ -94,18 +94,18 @@ def pyramid(image, scale=0.9, minSize=(200, 100)):
     images.append((current_scale, image))
 
     while True:
+        # Use "break" to exit this loop if the next image will be smaller than
+        # the supplied minimium size
+        ### YOUR CODE HERE
+        pass
+        ### END YOUR CODE
+
         # Compute the new dimensions of the image and resize it
         current_scale *= scale
         image = rescale(image, scale)
 
         # Yield the next image in the pyramid
         images.append((current_scale, image))
-
-        # Use "break" to exit this loop if the next image will be smaller than
-        # the supplied minimium size
-        ### YOUR CODE HERE
-        pass
-        ### END YOUR CODE
 
     return images
 
@@ -154,8 +154,8 @@ def compute_displacement(part_centers, face_shape):
             of one part in each image.
         face_shape: (h,w) that indicates the shape of a face.
     Returns:
-        mu: (1,2) vector.
-        sigma: (1,2) vector.
+        mu: (2,) vector.
+        sigma: (2,) vector.
 
     """
     d = np.zeros((part_centers.shape[0], 2))
