@@ -27,7 +27,11 @@ def compute_distances(X1, X2):
     #
     # HINT: Try to formulate the l2 distance using matrix multiplication
 
-    pass
+    D = X1.shape[1]
+    #Ms = np.zeros((M, N, D))
+    Ms = np.transpose(np.tile(X1, (N, 1, 1)), (1, 0, 2))
+    Ns = np.tile(X2, (M, 1, 1))
+    dists = np.sqrt(np.sum(np.power(Ms - Ns, 2), axis=2))
     # END YOUR CODE
 
     assert dists.shape == (M, N), "dists should have shape (M, N), got %s" % dists.shape
@@ -65,7 +69,8 @@ def predict_labels(dists, y_train, k=1):
         # label.
 
         # YOUR CODE HERE
-        pass
+        closest_y = np.argsort(dists[i])
+        y_pred[i] = np.bincount(y_train[closest_y[:k]]).argmax()
         # END YOUR CODE
 
     return y_pred
@@ -92,7 +97,7 @@ def split_folds(X_train, y_train, num_folds):
         y_train: numpy array of shape (N,) containing the label of each example
         num_folds: number of folds to split the data into
 
-    jeturns:
+    returns:
         X_trains: numpy array of shape (num_folds, train_size * (num_folds-1) / num_folds, D)
         y_trains: numpy array of shape (num_folds, train_size * (num_folds-1) / num_folds)
         X_vals: numpy array of shape (num_folds, train_size / num_folds, D)
@@ -111,7 +116,18 @@ def split_folds(X_train, y_train, num_folds):
 
     # YOUR CODE HERE
     # Hint: You can use the numpy array_split function.
-    pass
+    for i in range(num_folds):
+        f1 =  X_train[i * validation_size:(i + 1)*validation_size, :]
+        X_vals[i, :, :] = X_train[i * validation_size:(i + 1)*validation_size]
+        X_trains[i, :, :] = np.vstack((X_train[:i * validation_size], X_train[(i + 1) * validation_size:]))
+        y_vals[i, :] = y_train[i * validation_size:(i + 1)*validation_size]
+        y_trains[i, :] = np.hstack((y_train[:i * validation_size], y_train[(i + 1) * validation_size:]))
+
+    #X_vals = np.array_split(X_train, num_folds)
+    #y_vals = np.array_split(y_train, num_folds)
+    #for i in X_vals:
+    #    X_trains[i] = X_vals[i:].flatten()
+    #    y_trains = y_vals[i:].flatten()
     # END YOUR CODE
 
     return X_trains, y_trains, X_vals, y_vals
