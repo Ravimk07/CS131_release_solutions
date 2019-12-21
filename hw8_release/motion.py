@@ -11,6 +11,7 @@ import numpy as np
 from skimage.transform import pyramid_gaussian
 from skimage.filters import sobel_h, sobel_v, gaussian
 from skimage.feature import corner_harris, corner_peaks
+from sklearn.preprocessing import normalize
 
 def lucas_kanade(img1, img2, keypoints, window_size=5):
     """ Estimate flow vector at each keypoint using Lucas-Kanade method.
@@ -49,12 +50,19 @@ def lucas_kanade(img1, img2, keypoints, window_size=5):
         y, x = int(round(y)), int(round(x))
 
         ### YOUR CODE HERE
-        pass
+        A = np.zeros((window_size*window_size, 2))
+        A[:, 1] = Ix[y - w:y + w + 1, x - w:x + w + 1].flatten()
+        A[:, 0] = Iy[y - w:y + w + 1, x - w:x + w + 1].flatten()
+        b = -It[y - w:y + w + 1, x - w:x + w + 1].flatten()
+        inv = np.linalg.inv(A.T @ A)
+        v = inv @ A.T @ b
+        flow_vectors.append(v)
         ### END YOUR CODE
 
     flow_vectors = np.array(flow_vectors)
 
     return flow_vectors
+
 
 def iterative_lucas_kanade(img1, img2, keypoints,
                            window_size=9,
@@ -95,7 +103,11 @@ def iterative_lucas_kanade(img1, img2, keypoints,
 
         # TODO: Compute inverse of G at point (x1, y1)
         ### YOUR CODE HERE
-        pass
+        Ix2 = np.power(Ix[y1 - w:y1 + w, x1 - w:x1 + w], 2)
+        Iy2 = np.power(Iy[y1 - w:y1 + w, x1 - w:x1 + w], 2)
+        Ixy = Ix[y1 - w:y1 + w, x1 - w:x1 + w] * Iy[y1 - w:y1 + w, x1 - w:x1 + w]
+        G = np.array([[Ix2.sum(), Ixy.sum()], [Ixy.sum(), Iy2.sum()]])
+        G_inv = np.linalg.inv(G)
         ### END YOUR CODE
 
         # iteratively update flow vector
@@ -106,7 +118,13 @@ def iterative_lucas_kanade(img1, img2, keypoints,
 
             # TODO: Compute bk and vk = inv(G) x bk
             ### YOUR CODE HERE
-            pass
+            if y2 - w < 0 or y2 + w >= img2.shape[0] or x2 - w < 0 or x2 + w >= img2.shape[1]:
+                continue
+            dIk = img1[y1 - w:y1 + w, x1 - w:x1 + w] - img2[y2 - w:y2 + w, x2 - w:x2 + w]
+            dIkx = dIk * Ix[y1 - w:y1 + w, x1 - w:x1 + w]
+            dIky = dIk * Iy[y1 - w:y1 + w, x1 - w:x1 + w]
+            bk = np.array([dIkx.sum(), dIky.sum()])
+            vk = G_inv @ bk
             ### END YOUR CODE
 
             # Update flow vector by vk
@@ -145,10 +163,15 @@ def pyramid_lucas_kanade(img1, img2, keypoints,
     # Initialize pyramidal guess
     g = np.zeros(keypoints.shape)
 
+    sc = scale ** level
     for L in range(level, -1, -1):
         ### YOUR CODE HERE
-        pass
+        scaled_keypoints = keypoints.copy() / sc
+        sc /= scale
+        d = iterative_lucas_kanade(pyramid1[L], pyramid2[L], scaled_keypoints, window_size=window_size, num_iters=num_iters, g=g)
+        g = scale * (g + d)
         ### END YOUR CODE
+    g = (g / scale) - d
 
     d = g + d
     return d
@@ -168,7 +191,9 @@ def compute_error(patch1, patch2):
     assert patch1.shape == patch2.shape, 'Differnt patch shapes'
     error = 0
     ### YOUR CODE HERE
-    pass
+    p1 = (patch1 - patch1.mean()) / patch1.std()
+    p2 = (patch2 - patch2.mean()) / patch2.std()
+    error = np.square(p1 - p2).mean()
     ### END YOUR CODE
     return error
 
@@ -249,7 +274,16 @@ def IoU(bbox1, bbox2):
     score = 0
 
     ### YOUR CODE HERE
-    pass
+    x_tl = max(x1, x2)
+    y_tl = max(y1, y2)
+    
+    x_br = min(x1 + w1, x2 + w2)
+    y_br = min(y1 + h1, y2 + h2)
+
+    inter_area = max(0, y_br - y_tl + 1) * max(0, x_br - x_tl + 1)
+    area1 = w1 * h1
+    area2 = w2 * h2
+    score = inter_area / (area1 + area2 - inter_area)
     ### END YOUR CODE
 
     return score
